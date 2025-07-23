@@ -1,0 +1,71 @@
+<!-- index.html - Admin/User Login + Redirect -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FF Tournament Login</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKo50CVfADj1iTgaUFCzZ9uJWl83CRUzU",
+      authDomain: "ff-khelar-ghor.firebaseapp.com",
+      databaseURL: "https://ff-khelar-ghor-default-rtdb.firebaseio.com/",
+      projectId: "ff-khelar-ghor",
+      storageBucket: "ff-khelar-ghor.firebasestorage.app",
+      messagingSenderId: "329977562809",
+      appId: "1:329977562809:web:4f8ca3c72ae54b7ac8bd68"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    const adminEmail = "rezoan12345678@gmail.com";
+
+    window.registerUser = function () {
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPass").value;
+      createUserWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          const uid = userCredential.user.uid;
+          set(ref(db, 'users/' + uid), {
+            email: email,
+            balance: 0,
+            blocked: false
+          });
+          alert("Registration successful");
+        })
+        .catch((error) => alert(error.message));
+    }
+
+    window.loginUser = function () {
+      const email = document.getElementById("logEmail").value;
+      const password = document.getElementById("logPass").value;
+      signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          if (email === adminEmail) {
+            window.location.href = "admin.html";
+          } else {
+            window.location.href = "user.html";
+          }
+        })
+        .catch((error) => alert("Login failed: " + error.message));
+    }
+  </script>
+</head>
+<body style="background:#111;color:#fff;font-family:sans-serif;text-align:center;padding:40px">
+  <h2>FF Tournament Login</h2>
+  <input id="logEmail" type="email" placeholder="Email" style="width:80%;padding:10px;margin:5px"><br>
+  <input id="logPass" type="password" placeholder="Password" style="width:80%;padding:10px;margin:5px"><br>
+  <button onclick="loginUser()" style="padding:10px 20px;margin:10px">Login</button>
+
+  <h3>Register</h3>
+  <input id="regEmail" type="email" placeholder="Email" style="width:80%;padding:10px;margin:5px"><br>
+  <input id="regPass" type="password" placeholder="Password" style="width:80%;padding:10px;margin:5px"><br>
+  <button onclick="registerUser()" style="padding:10px 20px;margin:10px">Register</button>
+</body>
+</html>
