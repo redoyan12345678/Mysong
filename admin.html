@@ -1,0 +1,160 @@
+<!-- admin.html - Admin Panel -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, remove, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKo50CVfADj1iTgaUFCzZ9uJWl83CRUzU",
+      authDomain: "ff-khelar-ghor.firebaseapp.com",
+      databaseURL: "https://ff-khelar-ghor-default-rtdb.firebaseio.com/",
+      projectId: "ff-khelar-ghor",
+      storageBucket: "ff-khelar-ghor.firebasestorage.app",
+      messagingSenderId: "329977562809",
+      appId: "1:329977562809:web:4f8ca3c72ae54b7ac8bd68"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    const userList = document.getElementById("userList");
+    const depositList = document.getElementById("depositList");
+    const withdrawList = document.getElementById("withdrawList");
+    const matchList = document.getElementById("matchList");
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      loadUsers();
+      loadDeposits();
+      loadWithdraws();
+      loadMatches();
+    });
+
+    function loadUsers() {
+      onValue(ref(db, 'users'), snapshot => {
+        userList.innerHTML = '';
+        snapshot.forEach(child => {
+          const user = child.val();
+          const key = child.key;
+          const div = document.createElement('div');
+          div.innerHTML = `<div style="border:1px solid gray;padding:10px;margin:10px">
+            <b>${user.email}</b> - Balance: ${user.balance} - Blocked: ${user.blocked}
+            <button onclick="blockUser('${key}', ${user.blocked})">${user.blocked ? 'Unblock' : 'Block'}</button>
+          </div>`;
+          userList.appendChild(div);
+        });
+      });
+    }
+
+    window.blockUser = function(key, blocked) {
+      update(ref(db, 'users/' + key), { blocked: !blocked });
+    }
+
+    function loadDeposits() {
+      onValue(ref(db, 'depositRequests'), snapshot => {
+        depositList.innerHTML = '';
+        snapshot.forEach(child => {
+          const data = child.val();
+          const id = child.key;
+          const div = document.createElement('div');
+          div.innerHTML = `<div style="border:1px solid green;padding:10px;margin:10px">
+            ${data.email} wants to deposit ${data.amount} [${data.method}]<br>
+            <button onclick="approveDeposit('${id}', ${data.amount}, '${data.uid}')">Approve</button>
+          </div>`;
+          depositList.appendChild(div);
+        });
+      });
+    }
+
+    window.approveDeposit = function(id, amount, uid) {
+      get(ref(db, 'users/' + uid)).then(snapshot => {
+        if (snapshot.exists()) {
+          const user = snapshot.val();
+          update(ref(db, 'users/' + uid), {
+            balance: user.balance + Number(amount)
+          });
+          remove(ref(db, 'depositRequests/' + id));
+        }
+      });
+    }
+
+    function loadWithdraws() {
+      onValue(ref(db, 'withdrawRequests'), snapshot => {
+        withdrawList.innerHTML = '';
+        snapshot.forEach(child => {
+          const data = child.val();
+          const id = child.key;
+          const div = document.createElement('div');
+          div.innerHTML = `<div style="border:1px solid red;padding:10px;margin:10px">
+            ${data.email} wants to withdraw ${data.amount} to ${data.number} (${data.method})<br>
+            <button onclick="approveWithdraw('${id}')">Approve</button>
+          </div>`;
+          withdrawList.appendChild(div);
+        });
+      });
+    }
+
+    window.approveWithdraw = function(id) {
+      remove(ref(db, 'withdrawRequests/' + id));
+    }
+
+    window.addMatch = function() {
+      const title = document.getElementById("matchTitle").value;
+      const description = document.getElementById("matchDesc").value;
+      const amount = document.getElementById("matchAmount").value;
+      const limit = document.getElementById("matchLimit").value;
+      const logo = document.getElementById("matchLogo").value;
+      const match = {
+        title, description, amount: Number(amount), limit: Number(limit), logo, joined: 0
+      };
+      push(ref(db, 'matches'), match);
+      alert("Match added");
+    }
+
+    function loadMatches() {
+      onValue(ref(db, 'matches'), snapshot => {
+        matchList.innerHTML = '';
+        snapshot.forEach(child => {
+          const m = child.val();
+          matchList.innerHTML += `<div style='border:1px solid #aaa;padding:10px;margin:10px'>
+            <img src='${m.logo}' width='50'>
+            <b>${m.title}</b> <br>
+            ${m.description}<br>
+            Entry: ${m.amount} | Joined: ${m.joined}/${m.limit}
+          </div>`
+        });
+      });
+    }
+  </script>
+</head>
+<body style="font-family:sans-serif;background:#101010;color:white;padding:20px">
+  <h2>Admin Panel</h2>
+
+  <h3>➕ Add Match</h3>
+  <input id="matchTitle" placeholder="Match Title"><br>
+  <input id="matchDesc" placeholder="Description"><br>
+  <input id="matchAmount" placeholder="Join Amount"><br>
+  <input id="matchLimit" placeholder="Max Players"><br>
+  <input id="matchLogo" placeholder="Logo URL"><br>
+  <button onclick="addMatch()">Add Match</button>
+
+  <h3>👥 Users</h3>
+  <div id="userList"></div>
+
+  <h3>💰 Deposit Requests</h3>
+  <div id="depositList"></div>
+
+  <h3>📤 Withdraw Requests</h3>
+  <div id="withdrawList"></div>
+
+  <h3>🎮 All Matches</h3>
+  <div id="matchList"></div>
+</body>
+</html>
