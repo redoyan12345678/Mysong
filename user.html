@@ -1,0 +1,132 @@
+<!-- user.html - User Panel -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Panel</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKo50CVfADj1iTgaUFCzZ9uJWl83CRUzU",
+      authDomain: "ff-khelar-ghor.firebaseapp.com",
+      databaseURL: "https://ff-khelar-ghor-default-rtdb.firebaseio.com/",
+      projectId: "ff-khelar-ghor",
+      storageBucket: "ff-khelar-ghor.firebasestorage.app",
+      messagingSenderId: "329977562809",
+      appId: "1:329977562809:web:4f8ca3c72ae54b7ac8bd68"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        loadBalance();
+        loadMatches();
+      }
+    });
+
+    function loadBalance() {
+      onValue(ref(db, 'users/' + currentUser.uid), snapshot => {
+        const data = snapshot.val();
+        document.getElementById("balance").innerText = data.balance + "৳";
+      });
+    }
+
+    function loadMatches() {
+      onValue(ref(db, 'matches'), snapshot => {
+        const matchList = document.getElementById("matches");
+        matchList.innerHTML = '';
+        snapshot.forEach(child => {
+          const m = child.val();
+          const id = child.key;
+          matchList.innerHTML += `<div style='border:1px solid #666;padding:10px;margin:10px'>
+            <img src='${m.logo}' width='40'> <b>${m.title}</b><br>
+            ${m.description}<br>
+            Entry: ${m.amount}৳ | Joined: ${m.joined}/${m.limit}<br>
+            <button onclick="joinMatch('${id}', ${m.amount}, ${m.joined}, ${m.limit})">Join</button>
+          </div>`;
+        });
+      });
+    }
+
+    window.joinMatch = function(matchId, amount, joined, limit) {
+      get(ref(db, 'users/' + currentUser.uid)).then(snap => {
+        const user = snap.val();
+        if (user.blocked) return alert("You are blocked");
+        if (user.balance < amount) return alert("Insufficient balance");
+        if (joined >= limit) return alert("Match full");
+
+        update(ref(db, 'users/' + currentUser.uid), {
+          balance: user.balance - amount
+        });
+        update(ref(db, 'matches/' + matchId), {
+          joined: joined + 1
+        });
+        push(ref(db, 'history/' + currentUser.uid), {
+          match: matchId,
+          amount: amount,
+          time: new Date().toLocaleString()
+        });
+        alert("Joined successfully");
+      });
+    }
+
+    window.depositRequest = function() {
+      const amount = document.getElementById("depAmount").value;
+      const method = document.getElementById("depMethod").value;
+      const txn = document.getElementById("depTxn").value;
+      push(ref(db, 'depositRequests'), {
+        email: currentUser.email,
+        uid: currentUser.uid,
+        method,
+        amount,
+        txn
+      });
+      alert("Deposit requested");
+    }
+
+    window.withdrawRequest = function() {
+      const amount = document.getElementById("widAmount").value;
+      const method = document.getElementById("widMethod").value;
+      const number = document.getElementById("widNumber").value;
+      update(ref(db, 'users/' + currentUser.uid + '/balance'), prev => prev - Number(amount));
+      push(ref(db, 'withdrawRequests'), {
+        email: currentUser.email,
+        uid: currentUser.uid,
+        method,
+        number,
+        amount
+      });
+      alert("Withdraw requested");
+    }
+  </script>
+</head>
+<body style="font-family:sans-serif;background:#111;color:#fff;padding:10px">
+  <h2>🏆 User Panel</h2>
+  <p>Balance: <span id="balance">0৳</span></p>
+
+  <h3>🎮 Matches</h3>
+  <div id="matches"></div>
+
+  <h3>💳 Deposit</h3>
+  <input id="depAmount" placeholder="Amount"><br>
+  <select id="depMethod"><option>bKash</option><option>Nagad</option></select><br>
+  <input id="depTxn" placeholder="Transaction ID"><br>
+  <button onclick="depositRequest()">Confirm Deposit</button>
+
+  <h3>📤 Withdraw</h3>
+  <input id="widAmount" placeholder="Amount"><br>
+  <select id="widMethod"><option>bKash</option><option>Nagad</option></select><br>
+  <input id="widNumber" placeholder="Your Number"><br>
+  <button onclick="withdrawRequest()">Confirm Withdraw</button>
+</body>
+</html>
